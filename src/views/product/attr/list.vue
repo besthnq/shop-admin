@@ -1,7 +1,7 @@
 <template>
   <div>
     <el-card>
-      <CategorySelector @categoryChange="handleCategoryChange" />
+      <CategorySelector @categoryChange="handleCategoryChange" ref="cs" />
     </el-card>
     <el-card>
       <div v-show="isShowList">
@@ -93,12 +93,13 @@
                 placeholder="请输入属性值名称"
                 v-model="row.valueName"
                 v-if="row.edit"
+                :ref="$index"
                 @blur="toShow(row)"
                 @keyup.enter.native="toShow(row)"
               ></el-input>
               <span
                 v-else
-                @click="toEdit(row)"
+                @click="toEdit(row, $index)"
                 style="display:inline-block;width:100%"
                 >{{ row.valueName }}</span
               >
@@ -121,7 +122,10 @@
             </template>
           </el-table-column>
         </el-table>
-        <el-button type="primary" @click="addUpdateAttr" :disabled="isSave"
+        <el-button
+          type="primary"
+          @click="save"
+          :disabled="!attr.attrName || attr.attrValueList.length === 0"
           >保存</el-button
         >
         <el-button @click="isShowList = true">取消</el-button>
@@ -141,7 +145,6 @@ export default {
       category3Id: "",
       attrs: [], // 所有属性的列表
       isShowList: true, // 是否显示属性列表页面   true: 列表页面, false: 添加或更新页面
-      isSave: true,
       attr: {
         // 要添加或者修改的平台属性对象
         attrName: "", // 属性名
@@ -151,7 +154,11 @@ export default {
       }
     };
   },
-
+  watch: {
+    isShowList(value) {
+      this.$refs.cs.disabled = !value;
+    }
+  },
   //  edit: true 添加新属性值是编辑模式  false:查看模式
   methods: {
     // 删除属性
@@ -165,18 +172,23 @@ export default {
       }
     },
     // 保存属性，添加或更新当前属性
-    async addUpdateAttr() {
+    async save() {
       this.attr.attrValueList = this.attr.attrValueList.filter(item => {
         if (item.valueName.trim()) {
+          delete item.edit;
           return item;
         }
       });
+
+      if (this.attr.attrValueList.length === 0) {
+        this.$message.warning("至少指定一个属性值名称");
+        return;
+      }
 
       const result = await this.$API.attr.addOrUpdate(this.attr);
       if (result.code === 200) {
         this.$message.success(`${this.attr.id ? "更新" : "添加"}属性成功`);
         this.isShowList = true;
-        this.isSave = true;
         this.getAttrs();
       } else {
         this.$message.error(`${this.attr.id ? "更新" : "添加"}属性失败`);
@@ -187,12 +199,16 @@ export default {
       this.attr.attrValueList.splice(index, 1);
     },
     // 将指定属性值对象变为编辑模式
-    toEdit(value) {
+    toEdit(value, index) {
       if (value.hasOwnProperty("edit")) {
         value.edit = true;
       } else {
         this.$set(value, "edit", true); //双向数据绑定增加属性要通过$set（）
       }
+      // 页面更新后再去找input对象获取焦点
+      this.$nextTick(() => {
+        this.$refs.index.focus();
+      });
     },
     // 将指定属性值对象变为查看模式
     toShow(value) {
@@ -233,7 +249,10 @@ export default {
         valueName: "",
         edit: true //添加新属性值是编辑模式
       });
-      this.isSave = false;
+      // 界面更新后让最后一个属性值输入框自动聚焦
+      this.$nextTick(() => {
+        this.$refs[this.attr.attrValueList.length - 1].focus();
+      });
     },
 
     // 3个级别分类发生改变时的监听回调
