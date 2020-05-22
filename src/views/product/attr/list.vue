@@ -45,12 +45,18 @@
                 title="修改"
                 @click="showUpdate(row)"
               ></HintButton>
-              <HintButton
-                type="danger"
-                icon="el-icon-delete"
-                size="mini"
-                title="删除"
-              ></HintButton>
+              <el-popconfirm
+                :title="`确定删除属性值${row.attrName}吗？`"
+                @onConfirm="deleteAttr(row)"
+              >
+                <HintButton
+                  slot="reference"
+                  type="danger"
+                  icon="el-icon-delete"
+                  size="mini"
+                  title="删除"
+                ></HintButton>
+              </el-popconfirm>
             </template>
           </el-table-column>
         </el-table>
@@ -90,22 +96,34 @@
                 @blur="toShow(row)"
                 @keyup.enter.native="toShow(row)"
               ></el-input>
-              <span v-else @click="toEdit(row)">{{ row.valueName }}</span>
+              <span
+                v-else
+                @click="toEdit(row)"
+                style="display:inline-block;width:100%"
+                >{{ row.valueName }}</span
+              >
             </template>
           </el-table-column>
-          <el-table-column label="操作">
+          <el-table-column label="操作" width="150">
             <template slot-scope="{ row, $index }">
-              <HintButton
-                title="删除"
-                type="danger"
-                icon="el-icon-delete"
-                size="mini"
-                @click="deleteValue($index)"
-              ></HintButton>
+              <el-popconfirm
+                :title="`确定删除属性值${row.valueName}吗？`"
+                @onConfirm="deleteValue($index)"
+              >
+                <HintButton
+                  slot="reference"
+                  title="删除"
+                  type="danger"
+                  icon="el-icon-delete"
+                  size="mini"
+                ></HintButton>
+              </el-popconfirm>
             </template>
           </el-table-column>
         </el-table>
-        <el-button type="primary">保存</el-button>
+        <el-button type="primary" @click="addUpdateAttr" :disabled="isSave"
+          >保存</el-button
+        >
         <el-button @click="isShowList = true">取消</el-button>
       </div>
     </el-card>
@@ -113,6 +131,7 @@
 </template>
 
 <script>
+import cloneDeep from "lodash/cloneDeep";
 export default {
   name: "AttrList",
   data() {
@@ -122,18 +141,48 @@ export default {
       category3Id: "",
       attrs: [], // 所有属性的列表
       isShowList: true, // 是否显示属性列表页面   true: 列表页面, false: 添加或更新页面
+      isSave: true,
       attr: {
         // 要添加或者修改的平台属性对象
         attrName: "", // 属性名
-        attrValueList: [], //属性值的列表
+        attrValueList: [], //属性值的列表  //属性值对象： {"attrId": 0,"id": 0,"valueName": "string"}
         categoryId: "", // 3级的分类ID
         categoryLevel: 3 // 只能是3级
       }
     };
   },
-  //属性值对象： {"attrId": 0,"id": 0,"valueName": "string"}
+
   //  edit: true 添加新属性值是编辑模式  false:查看模式
   methods: {
+    // 删除属性
+    async deleteAttr(attr) {
+      const result = await this.$API.attr.remove(attr.id);
+      if (result.code === 200) {
+        this.$message.success("删除属性成功~~");
+        this.getAttrs();
+      } else {
+        this.$message.error("删除属性失败~~");
+      }
+    },
+    // 保存属性，添加或更新当前属性
+    async addUpdateAttr() {
+      this.attr.attrValueList = this.attr.attrValueList.filter(item => {
+        if (item.valueName.trim()) {
+          return item;
+        }
+      });
+
+      const result = await this.$API.attr.addOrUpdate(this.attr);
+      if (result.code === 200) {
+        this.$message.success(`${this.attr.id ? "更新" : "添加"}属性成功`);
+        this.isShowList = true;
+        this.isSave = true;
+        this.getAttrs();
+      } else {
+        this.$message.error(`${this.attr.id ? "更新" : "添加"}属性失败`);
+      }
+    },
+    // 删除属性值
     deleteValue(index) {
       this.attr.attrValueList.splice(index, 1);
     },
@@ -164,7 +213,7 @@ export default {
     },
     // 显示修改属性的界面
     showUpdate(attr) {
-      this.attr = attr;
+      this.attr = cloneDeep(attr);
       this.isShowList = false;
     },
     // 显示添加属性的界面
@@ -184,6 +233,7 @@ export default {
         valueName: "",
         edit: true //添加新属性值是编辑模式
       });
+      this.isSave = false;
     },
 
     // 3个级别分类发生改变时的监听回调
