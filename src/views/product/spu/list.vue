@@ -11,6 +11,7 @@
           type="primary"
           icon="el-icon-plus"
           style="margin-bottom: 20px"
+          @click="showAddSpu"
           >添加SPU</el-button
         >
         <el-table v-loading="loading" :data="spuList" border stripe>
@@ -26,7 +27,7 @@
                 type="primary"
                 icon="el-icon-plus"
                 size="mini"
-                @click="showSkuAdd"
+                @click="showSkuAdd(row)"
               ></hint-button>
               <hint-button
                 title="修改SPU"
@@ -41,12 +42,15 @@
                 icon="el-icon-info"
                 size="mini"
               ></hint-button>
-              <hint-button
-                title="删除SPU"
-                type="danger"
-                icon="el-icon-delete"
-                size="mini"
-              ></hint-button>
+              <el-popconfirm title="确定删除吗?" @onConfirm="deleteSpu(row.id)">
+                <hint-button
+                  slot="reference"
+                  title="删除SPU"
+                  type="danger"
+                  icon="el-icon-delete"
+                  size="mini"
+                ></hint-button>
+              </el-popconfirm>
             </template>
           </el-table-column>
         </el-table>
@@ -63,8 +67,12 @@
         />
       </div>
       <!-- <SpuForm v-show="isShowSpuForm"></SpuForm> -->
-      <SpuForm :visible.sync="isShowSpuForm" ref="spuForm"></SpuForm>
-      <SkuForm v-show="isShowSkuForm"></SkuForm>
+      <SpuForm
+        :visible.sync="isShowSpuForm"
+        @save="getSpuList()"
+        ref="spuForm"
+      ></SpuForm>
+      <SkuForm v-show="isShowSkuForm" @cancel="isShowSkuForm = false"></SkuForm>
     </el-card>
   </div>
 </template>
@@ -85,13 +93,36 @@ export default {
       total: 0,
       loading: false,
       isShowSpuForm: false,
-      isShowSkuForm: false
+      isShowSkuForm: false,
+
+      skuList: [],
+      spuName: ""
     };
   },
+
   methods: {
+    // 删除SPU
+    async deleteSpu(id) {
+      const result = await this.$API.spu.remove(id);
+      if (result.code === 200) {
+        this.$message.success("删除成功~~");
+        this.getSpuList();
+      } else {
+        this.$message.error("删除失败！！");
+      }
+    },
     // 显示SPU添加的表单界面
-    showSkuAdd() {
+    showAddSpu() {
+      const { category3Id } = this;
       this.isShowSpuForm = true;
+      this.$refs.spuForm.initLoadAddData(category3Id);
+    },
+    // 显示SKU添加的表单界面
+    async showSkuAdd(spu) {
+      this.spuName = spu.spuName;
+      this.isShowSkuForm = true;
+      const result = await this.$API.sku.getListBySpuId(spu.id);
+      this.skuList = result.data.records;
     },
     //显示SPU修改界面
     showUpdateSpu(id) {
