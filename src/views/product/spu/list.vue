@@ -1,8 +1,9 @@
 <template>
   <div>
-    <el-card style="margin-bottom: 20px">
+    <el-card style="margin-bottom: 20px" v-show="!isShowSkuForm">
       <category-selector
         @categoryChange="handleCategoryChange"
+        ref="cs"
       ></category-selector>
     </el-card>
     <el-card>
@@ -12,6 +13,7 @@
           icon="el-icon-plus"
           style="margin-bottom: 20px"
           @click="showAddSpu"
+          :disabled="!category3Id"
           >添加SPU</el-button
         >
         <el-table v-loading="loading" :data="spuList" border stripe>
@@ -41,6 +43,7 @@
                 type="info"
                 icon="el-icon-info"
                 size="mini"
+                @click="showSkuList(row)"
               ></hint-button>
               <el-popconfirm title="确定删除吗?" @onConfirm="deleteSpu(row.id)">
                 <hint-button
@@ -69,11 +72,34 @@
       <!-- <SpuForm v-show="isShowSpuForm"></SpuForm> -->
       <SpuForm
         :visible.sync="isShowSpuForm"
-        @save="getSpuList()"
+        @save="handleSaveSuccess"
+        @cancel="handleCancel"
         ref="spuForm"
       ></SpuForm>
-      <SkuForm v-show="isShowSkuForm" @cancel="isShowSkuForm = false"></SkuForm>
+      <SkuForm
+        v-show="isShowSkuForm"
+        @cancel="isShowSkuForm = false"
+        @saveSuccess="isShowSkuForm = false"
+        ref="skuForm"
+      ></SkuForm>
     </el-card>
+
+    <el-dialog :title="spuName + '->SKU列表'" :visible.sync="isShowSkuList">
+      <el-table :data="skuList" border>
+        <el-table-column prop="skuName" label="名称"></el-table-column>
+        <el-table-column prop="price" label="价格(元)"></el-table-column>
+        <el-table-column prop="weight" label="重量(KG)"></el-table-column>
+        <el-table-column label="默认图片">
+          <template slot-scope="{ row, $index }">
+            <img
+              :src="row.skuDefaultImg"
+              alt=""
+              style="width:100px;height:100px"
+            />
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -95,12 +121,38 @@ export default {
       isShowSpuForm: false,
       isShowSkuForm: false,
 
+      isShowSkuList: false,
+
       skuList: [],
-      spuName: ""
+      spuName: "",
+      spu: {} // 要显示sku列表的spu
     };
+  },
+  watch: {
+    isShowSpuForm(value) {
+      this.$refs.cs.disabled = value;
+    }
   },
 
   methods: {
+    //pu保存成功地回调函数
+    handleSaveSuccess() {
+      this.getSpuList(this.spuId ? this.page : 1);
+      this.spuId = null;
+    },
+    handleCancel() {
+      // 重置更新的标识
+      this.spuId = null;
+    },
+
+    //查看spu下的所有sku
+    async showSkuList(spu) {
+      this.spuName = spu.spuName;
+      this.isShowSkuList = true;
+      this.spu = spu;
+      const result = await this.$API.sku.getListBySpuId(spu.id);
+      this.skuList = result.data;
+    },
     // 删除SPU
     async deleteSpu(id) {
       const result = await this.$API.spu.remove(id);
@@ -108,24 +160,26 @@ export default {
         this.$message.success("删除成功~~");
         this.getSpuList();
       } else {
-        this.$message.error("删除失败！！");
+        this.$message.error(result.data || result.message || "删除失败！！");
       }
     },
     // 显示SPU添加的表单界面
     showAddSpu() {
-      const { category3Id } = this;
       this.isShowSpuForm = true;
-      this.$refs.spuForm.initLoadAddData(category3Id);
+      this.$refs.spuForm.initLoadAddData(this.category3Id);
     },
     // 显示SKU添加的表单界面
-    async showSkuAdd(spu) {
-      this.spuName = spu.spuName;
+    showSkuAdd(spu) {
       this.isShowSkuForm = true;
-      const result = await this.$API.sku.getListBySpuId(spu.id);
-      this.skuList = result.data.records;
+      spu = { ...spu };
+      spu.category1Id = this.category1Id;
+      spu.category2Id = this.category2Id;
+      this.$refs.skuForm.initLoadAddData(spu);
+      // console.log(spu);
     },
     //显示SPU修改界面
     showUpdateSpu(id) {
+      this.spuId = id;
       this.isShowSpuForm = true;
       // 通知SpuForm根据传入的ID请求获取初始显示需要的数据
       // 使用的是v-show来隐藏的, 隐藏时组件对象还在存在
@@ -168,6 +222,8 @@ export default {
     }
   },
   mounted() {
+    this.category1Id = 2;
+    this.category2Id = 13;
     this.category3Id = 61;
     this.getSpuList();
   },

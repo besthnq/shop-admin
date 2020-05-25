@@ -56,6 +56,7 @@
               type="primary"
               size="mini"
               icon="el-icon-info"
+               @click="showSkuInfo(row.id)"
             />
 
             <el-popconfirm
@@ -102,9 +103,11 @@ export default {
     };
   },
   methods: {
+    // 查看sku详情
+    showSkuInfo(){},
     // 删除sku
     async deleteSku(skuId) {
-      const result = await this.$API.sku.deleteSku(skuId);
+      const result = await this.$API.sku.remove(skuId);
       if (result.code === 200) {
         this.$message.success("删除成功~~");
         this.getSkuList(this.page);
