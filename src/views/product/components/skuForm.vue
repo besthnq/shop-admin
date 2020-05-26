@@ -195,7 +195,7 @@ export default {
     initLoadAddData(spu) {
       this.spu = spu;
       this.skuInfo.category3Id = spu.category3Id;
-      this.skuInfo.spuId = spu.spuId;
+      this.skuInfo.spuId = spu.id;
       this.skuInfo.tmId = spu.tmId;
       this.getData();
     },

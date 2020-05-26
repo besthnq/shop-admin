@@ -135,7 +135,7 @@ export default {
   },
 
   methods: {
-    //pu保存成功地回调函数
+    //spu保存成功地回调函数
     handleSaveSuccess() {
       this.getSpuList(this.spuId ? this.page : 1);
       this.spuId = null;
